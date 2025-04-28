@@ -24,8 +24,20 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const logout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setSession(null);
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      throw error;
+    }
+  };
+
   return {
     session,
     loading,
+    logout,
   };
 } 
