@@ -370,10 +370,7 @@ export default function UserFeed({ filters }: UserFeedProps) {
   };
 
   const handleMessage = (userId: string) => {
-    router.push({
-      pathname: '/community',
-      params: { userId }
-    });
+    router.push(`/chat/${userId}`);
   };
 
   const handleCitySelect = (city: string | null) => {

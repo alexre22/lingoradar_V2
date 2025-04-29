@@ -159,31 +159,47 @@ ON user_languages FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 
--- Create messages table
+-- Create messages table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.messages (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    content TEXT NOT NULL,
-    sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    receiver_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  content TEXT NOT NULL,
+  sender_id UUID REFERENCES auth.users(id) NOT NULL,
+  receiver_id UUID REFERENCES auth.users(id) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  read_at TIMESTAMP WITH TIME ZONE
 );
 
--- Enable RLS
+-- Enable Row Level Security
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view messages they sent or received" ON public.messages;
-DROP POLICY IF EXISTS "Users can insert messages they send" ON public.messages;
+DROP POLICY IF EXISTS "Users can view their own messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can insert their own messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can update their own messages" ON public.messages;
 
--- Create policies for messages
-CREATE POLICY "Users can view messages they sent or received"
-    ON public.messages FOR SELECT
-    USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+-- Create policies
+CREATE POLICY "Users can view their own messages"
+  ON public.messages
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
 
-CREATE POLICY "Users can insert messages they send"
-    ON public.messages FOR INSERT
-    WITH CHECK (auth.uid() = sender_id);
+CREATE POLICY "Users can insert their own messages"
+  ON public.messages
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = sender_id);
+
+CREATE POLICY "Users can update their own messages"
+  ON public.messages
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
 
 -- Create index for faster message retrieval
 CREATE INDEX IF NOT EXISTS messages_sender_receiver_idx 
-    ON public.messages(sender_id, receiver_id); 
+  ON public.messages(sender_id, receiver_id);
+
+-- Create index for message ordering
+CREATE INDEX IF NOT EXISTS messages_created_at_idx 
+  ON public.messages(created_at DESC); 
