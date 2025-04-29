@@ -5,37 +5,80 @@ import {
   TextInput,
   TouchableOpacity,
   Text,
+  Modal,
+  ScrollView,
   Pressable,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import UserFeed from '../../components/UserFeed';
 import { FontAwesome } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
+import CityFilter from '../../components/CityFilter';
 
 interface FilterOptions {
-  nativeLanguages: string[];
-  learningLanguages: string[];
+  nativeLanguages: number[];
+  learningLanguages: number[];
   interests: string[];
   city: string;
   minAge: number;
   maxAge: number;
+  searchQuery?: string;
 }
 
 export default function Community() {
-  const [selectedCity, setSelectedCity] = useState('New York');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('Users'); // 'Users' or 'Map'
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     nativeLanguages: [],
     learningLanguages: [],
     interests: [],
-    city: selectedCity,
+    city: '',
     minAge: 18,
     maxAge: 100,
   });
+  const [languages, setLanguages] = useState<{id: number, name: string}[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
 
+  // Fetch available languages and cities
   useEffect(() => {
-    setFilters(prev => ({ ...prev, city: selectedCity }));
-  }, [selectedCity]);
+    async function fetchData() {
+      // Fetch languages
+      const { data: languagesData } = await supabase
+        .from('languages')
+        .select('id, name')
+        .order('name');
+      
+      if (languagesData) {
+        setLanguages(languagesData);
+      }
+
+      // Fetch cities
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('city')
+        .not('city', 'is', null);
+      
+      if (profilesData) {
+        const uniqueCities = [...new Set(profilesData.map(profile => profile.city))];
+        setCities(uniqueCities.filter(city => city));
+      }
+    }
+    fetchData();
+  }, []);
+
+  const handleSearch = () => {
+    setFilters(prev => ({
+      ...prev,
+      searchQuery: searchQuery,
+    }));
+  };
+
+  const handleFilterChange = (key: keyof FilterOptions, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   return (
     <View style={styles.container}>
@@ -44,62 +87,153 @@ export default function Community() {
       </View>
 
       <View style={styles.filterContainer}>
-        <View style={styles.cityPickerContainer}>
-          <Text style={styles.label}>City:</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={selectedCity}
-              onValueChange={setSelectedCity}
-              style={styles.cityPicker}
-            >
-              <Picker.Item label="New York" value="New York" />
-              <Picker.Item label="Los Angeles" value="Los Angeles" />
-              <Picker.Item label="Chicago" value="Chicago" />
-              {/* Add more cities as needed */}
-            </Picker>
-          </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <FontAwesome name="sliders" size={20} color="#000" />
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name or language"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+          />
+          <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
+            <FontAwesome name="search" size={16} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.searchContainer}>
-          <FontAwesome name="search" size={16} color="#666" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name, language or interest"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        <View style={styles.tabContainer}>
-          <Pressable
-            style={[styles.tab, activeTab === 'Users' && styles.activeTab]}
-            onPress={() => setActiveTab('Users')}
-          >
-            <Text style={[styles.tabText, activeTab === 'Users' && styles.activeTabText]}>
-              Users
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, activeTab === 'Map' && styles.activeTab]}
-            onPress={() => setActiveTab('Map')}
-          >
-            <Text style={[styles.tabText, activeTab === 'Map' && styles.activeTabText]}>
-              Map
-            </Text>
-          </Pressable>
-        </View>
+        <TouchableOpacity 
+          style={[styles.filterButton, showFilters && styles.activeFilterButton]}
+          onPress={() => setShowFilters(true)}
+        >
+          <FontAwesome name="sliders" size={20} color={showFilters ? "#fff" : "#000"} />
+        </TouchableOpacity>
       </View>
 
-      {activeTab === 'Users' ? (
-        <UserFeed filters={filters} />
-      ) : (
-        <View style={styles.mapPlaceholder}>
-          <Text>Map View Coming Soon</Text>
+      <UserFeed filters={filters} />
+
+      <Modal
+        visible={showFilters}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Filters</Text>
+              <TouchableOpacity 
+                onPress={() => setShowFilters(false)}
+                style={styles.closeButton}
+              >
+                <FontAwesome name="times" size={20} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.filtersScroll}>
+              {/* Native Languages */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Native Languages</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.languageContainer}>
+                    {languages.map((lang) => (
+                      <TouchableOpacity
+                        key={lang.id}
+                        style={[
+                          styles.languageButton,
+                          filters.nativeLanguages.includes(lang.id) && styles.selectedLanguage,
+                        ]}
+                        onPress={() => {
+                          const newLanguages = filters.nativeLanguages.includes(lang.id)
+                            ? filters.nativeLanguages.filter(id => id !== lang.id)
+                            : [...filters.nativeLanguages, lang.id];
+                          handleFilterChange('nativeLanguages', newLanguages);
+                        }}
+                      >
+                        <Text style={[
+                          styles.languageText,
+                          filters.nativeLanguages.includes(lang.id) && styles.selectedLanguageText
+                        ]}>
+                          {lang.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* Learning Languages */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Learning Languages</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.languageContainer}>
+                    {languages.map((lang) => (
+                      <TouchableOpacity
+                        key={lang.id}
+                        style={[
+                          styles.languageButton,
+                          filters.learningLanguages.includes(lang.id) && styles.selectedLanguage,
+                        ]}
+                        onPress={() => {
+                          const newLanguages = filters.learningLanguages.includes(lang.id)
+                            ? filters.learningLanguages.filter(id => id !== lang.id)
+                            : [...filters.learningLanguages, lang.id];
+                          handleFilterChange('learningLanguages', newLanguages);
+                        }}
+                      >
+                        <Text style={[
+                          styles.languageText,
+                          filters.learningLanguages.includes(lang.id) && styles.selectedLanguageText
+                        ]}>
+                          {lang.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+
+              {/* City */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>City</Text>
+                <CityFilter 
+                  onCitySelect={(city) => handleFilterChange('city', city)}
+                  selectedCity={filters.city}
+                />
+              </View>
+
+              {/* Age Range */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Age Range</Text>
+                <View style={styles.ageContainer}>
+                  <TextInput
+                    style={styles.ageInput}
+                    placeholder="Min"
+                    keyboardType="numeric"
+                    value={filters.minAge.toString()}
+                    onChangeText={(value) => handleFilterChange('minAge', parseInt(value) || 18)}
+                  />
+                  <Text style={styles.ageSeparator}>-</Text>
+                  <TextInput
+                    style={styles.ageInput}
+                    placeholder="Max"
+                    keyboardType="numeric"
+                    value={filters.maxAge.toString()}
+                    onChangeText={(value) => handleFilterChange('maxAge', parseInt(value) || 100)}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={() => setShowFilters(false)}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -123,28 +257,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-  },
-  cityPickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  label: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  pickerWrapper: {
+  searchContainer: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
     borderRadius: 8,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
+    marginRight: 12,
   },
-  cityPicker: {
+  searchInput: {
+    flex: 1,
     height: 40,
+    fontSize: 16,
+  },
+  searchButton: {
+    backgroundColor: '#2196F3',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterButton: {
-    marginLeft: 12,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -152,48 +290,106 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+  activeFilterButton: {
+    backgroundColor: '#2196F3',
   },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
+  modalContainer: {
     flex: 1,
-    height: 40,
-    fontSize: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  tabContainer: {
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  closeButton: {
     padding: 4,
   },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
+  filtersScroll: {
+    padding: 16,
   },
-  activeTab: {
-    backgroundColor: '#fff',
+  filterSection: {
+    marginBottom: 20,
   },
-  tabText: {
+  filterLabel: {
     fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  languageContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  languageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  selectedLanguage: {
+    backgroundColor: '#2196F3',
+  },
+  languageText: {
     color: '#666',
   },
-  activeTabText: {
-    color: '#000',
-    fontWeight: '500',
+  selectedLanguageText: {
+    color: '#fff',
   },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 40,
+  },
+  ageContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+  },
+  ageInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 8,
+    width: 80,
+    textAlign: 'center',
+  },
+  ageSeparator: {
+    marginHorizontal: 12,
+    fontSize: 16,
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  applyButton: {
+    backgroundColor: '#2196F3',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

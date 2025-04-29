@@ -78,7 +78,7 @@ WITH CHECK (
 
 CREATE POLICY "Allow users to view all profile pictures"
 ON storage.objects FOR SELECT
-TO authenticated
+TO public
 USING (bucket_id = 'profile-pictures');
 
 CREATE POLICY "Allow users to update their own profile pictures"
@@ -157,4 +157,33 @@ USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own language preferences"
 ON user_languages FOR DELETE
 TO authenticated
-USING (auth.uid() = user_id); 
+USING (auth.uid() = user_id);
+
+-- Create messages table
+CREATE TABLE IF NOT EXISTS public.messages (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    content TEXT NOT NULL,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    receiver_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view messages they sent or received" ON public.messages;
+DROP POLICY IF EXISTS "Users can insert messages they send" ON public.messages;
+
+-- Create policies for messages
+CREATE POLICY "Users can view messages they sent or received"
+    ON public.messages FOR SELECT
+    USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+
+CREATE POLICY "Users can insert messages they send"
+    ON public.messages FOR INSERT
+    WITH CHECK (auth.uid() = sender_id);
+
+-- Create index for faster message retrieval
+CREATE INDEX IF NOT EXISTS messages_sender_receiver_idx 
+    ON public.messages(sender_id, receiver_id); 

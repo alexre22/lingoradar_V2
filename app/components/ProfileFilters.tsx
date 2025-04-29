@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 
 interface FilterOptions {
   nativeLanguages: string[];
@@ -107,22 +106,6 @@ export default function ProfileFilters({
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterTitle}>City</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={filters.city}
-            style={styles.picker}
-            onValueChange={(value) => handleFilterChange('city', value)}
-          >
-            <Picker.Item label="All Cities" value="" />
-            {availableCities.map((city) => (
-              <Picker.Item key={city} label={city} value={city} />
-            ))}
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.filterSection}>
         <Text style={styles.filterTitle}>Age Range</Text>
         <View style={styles.ageRangeContainer}>
           <TextInput
@@ -182,16 +165,6 @@ const styles = StyleSheet.create({
   },
   selectedButtonText: {
     color: '#fff',
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  picker: {
-    height: 40,
-    width: 200,
   },
   ageRangeContainer: {
     flexDirection: 'row',
