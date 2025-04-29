@@ -26,7 +26,7 @@ interface Profile {
   interests: number[];
 }
 
-export default function ProfileScreen() {
+export default function Profile() {
   const { session, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

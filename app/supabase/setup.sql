@@ -1,6 +1,6 @@
 -- Create profiles table if it doesn't exist
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users(id) PRIMARY KEY,
   name TEXT,
   age INTEGER,
   gender TEXT,
@@ -10,32 +10,51 @@ CREATE TABLE IF NOT EXISTS profiles (
   native_languages INTEGER[],
   learning_languages INTEGER[],
   interests INTEGER[],
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Enable Row Level Security
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Create policies for profiles table
-CREATE POLICY "Users can view their own profile"
-ON profiles FOR SELECT
-TO authenticated
-USING (auth.uid() = id);
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 
-CREATE POLICY "Users can insert their own profile"
-ON profiles FOR INSERT
-TO authenticated
-WITH CHECK (auth.uid() = id);
+-- Create policies
+CREATE POLICY "Users can view all profiles"
+  ON public.profiles
+  FOR SELECT
+  TO authenticated
+  USING (true);
 
 CREATE POLICY "Users can update their own profile"
-ON profiles FOR UPDATE
-TO authenticated
-USING (auth.uid() = id);
+  ON public.profiles
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id);
 
-CREATE POLICY "Users can delete their own profile"
-ON profiles FOR DELETE
-TO authenticated
-USING (auth.uid() = id);
+CREATE POLICY "Users can insert their own profile"
+  ON public.profiles
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = id);
+
+-- Function to handle user creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, native_languages, learning_languages, interests)
+  VALUES (new.id, ARRAY[]::INTEGER[], ARRAY[]::INTEGER[], ARRAY[]::INTEGER[]);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to automatically create profile
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- Create or ignore storage bucket for profile pictures
 INSERT INTO storage.buckets (id, name, public)
@@ -113,6 +132,13 @@ CREATE TABLE IF NOT EXISTS user_languages (
 -- Set up RLS policies for user_languages
 ALTER TABLE user_languages ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing user_languages policies if they exist
+DROP POLICY IF EXISTS "Users can view their own language preferences" ON user_languages;
+DROP POLICY IF EXISTS "Users can insert their own language preferences" ON user_languages;
+DROP POLICY IF EXISTS "Users can update their own language preferences" ON user_languages;
+DROP POLICY IF EXISTS "Users can delete their own language preferences" ON user_languages;
+
+-- Create policies for user_languages
 CREATE POLICY "Users can view their own language preferences"
 ON user_languages FOR SELECT
 TO authenticated

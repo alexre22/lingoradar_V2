@@ -3,35 +3,29 @@ import { FontAwesome } from '@expo/vector-icons';
 
 export default function TabLayout() {
   return (
-    <Tabs screenOptions={{
-      tabBarActiveTintColor: '#007AFF',
-    }}>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: '#007AFF',
+        headerShown: false,
+      }}
+      initialRouteName="community"
+    >
       <Tabs.Screen
-        name="index"
+        name="community"
         options={{
           title: 'Community',
-          tabBarIcon: ({ color }) => <FontAwesome name="users" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color }) => <FontAwesome name="map" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="chats"
-        options={{
-          title: 'Chats',
-          tabBarIcon: ({ color }) => <FontAwesome name="comments" size={24} color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="users" size={24} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <FontAwesome name="user" size={24} color={color} />,
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="user" size={24} color={color} />
+          ),
         }}
       />
     </Tabs>
