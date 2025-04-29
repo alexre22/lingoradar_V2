@@ -128,9 +128,16 @@ export default function ChatRoom() {
           table: 'messages',
           filter: `or(and(sender_id.eq.${id},receiver_id.eq.${currentUserId}),and(sender_id.eq.${currentUserId},receiver_id.eq.${id}))`,
         },
-        (payload) => {
+        async (payload) => {
           if (payload.eventType === 'INSERT') {
             const newMessage = payload.new as Message;
+            // If we're the receiver, mark the message as delivered
+            if (newMessage.receiver_id === currentUserId) {
+              await supabase
+                .from('messages')
+                .update({ delivered_at: new Date().toISOString() })
+                .eq('id', newMessage.id);
+            }
             setMessages(prev => {
               if (prev.some(msg => msg.id === newMessage.id)) {
                 return prev;
@@ -168,7 +175,8 @@ export default function ChatRoom() {
           sender_id: currentUserId,
           receiver_id: id,
           created_at: new Date().toISOString(),
-          delivered_at: new Date().toISOString() // Mark as delivered immediately
+          delivered_at: null, // Initially not delivered
+          read_at: null // Initially not read
         })
         .select()
         .single();
@@ -191,11 +199,9 @@ export default function ChatRoom() {
       return (
         <View style={styles.messageStatus}>
           {message.read_at ? (
-            <Ionicons name="checkmark-done" size={16} color="#007AFF" />
-          ) : message.delivered_at ? (
-            <Ionicons name="checkmark-done" size={16} color="#8E8E93" />
+            <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
           ) : (
-            <Ionicons name="checkmark" size={16} color="#8E8E93" />
+            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
           )}
         </View>
       );

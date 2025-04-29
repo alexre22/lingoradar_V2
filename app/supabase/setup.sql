@@ -166,7 +166,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
   sender_id UUID REFERENCES auth.users(id) NOT NULL,
   receiver_id UUID REFERENCES auth.users(id) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  read_at TIMESTAMP WITH TIME ZONE
+  read_at TIMESTAMP WITH TIME ZONE,
+  delivered_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Enable Row Level Security
@@ -202,4 +203,26 @@ CREATE INDEX IF NOT EXISTS messages_sender_receiver_idx
 
 -- Create index for message ordering
 CREATE INDEX IF NOT EXISTS messages_created_at_idx 
-  ON public.messages(created_at DESC); 
+  ON public.messages(created_at DESC);
+
+-- Add read_at and delivered_at columns if they don't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = 'messages' 
+    AND column_name = 'read_at'
+  ) THEN
+    ALTER TABLE public.messages ADD COLUMN read_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name = 'messages' 
+    AND column_name = 'delivered_at'
+  ) THEN
+    ALTER TABLE public.messages ADD COLUMN delivered_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END $$; 
