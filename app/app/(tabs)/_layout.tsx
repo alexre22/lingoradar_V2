@@ -20,6 +20,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="global-map"
+        options={{
+          title: 'Map',
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="map-marker" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',

@@ -14,6 +14,7 @@ import UserFeed from '../../components/UserFeed';
 import { FontAwesome } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import CityFilter from '../../components/CityFilter';
+import { useLocalSearchParams } from 'expo-router';
 
 interface FilterOptions {
   nativeLanguages: number[];
@@ -26,18 +27,29 @@ interface FilterOptions {
 }
 
 export default function Community() {
+  const { city: cityFromUrl } = useLocalSearchParams<{ city: string }>();
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterOptions>({
     nativeLanguages: [],
     learningLanguages: [],
     interests: [],
-    city: '',
+    city: cityFromUrl || '',
     minAge: 18,
     maxAge: 100,
   });
   const [languages, setLanguages] = useState<{id: number, name: string}[]>([]);
   const [cities, setCities] = useState<string[]>([]);
+
+  // Update filters when city from URL changes
+  useEffect(() => {
+    if (cityFromUrl) {
+      setFilters(prev => ({
+        ...prev,
+        city: cityFromUrl
+      }));
+    }
+  }, [cityFromUrl]);
 
   // Fetch available languages and cities
   useEffect(() => {
@@ -53,16 +65,18 @@ export default function Community() {
       }
 
       // Fetch cities
-      const { data: profilesData } = await supabase
+      const { data: citiesData } = await supabase
         .from('profiles')
         .select('city')
-        .not('city', 'is', null);
+        .not('city', 'is', null)
+        .order('city');
       
-      if (profilesData) {
-        const uniqueCities = [...new Set(profilesData.map(profile => profile.city))];
-        setCities(uniqueCities.filter(city => city));
+      if (citiesData) {
+        const uniqueCities = [...new Set(citiesData.map(item => item.city))];
+        setCities(uniqueCities);
       }
     }
+
     fetchData();
   }, []);
 
