@@ -81,7 +81,7 @@ export default function AuthScreen() {
         console.log('Session after sign in:', session); // Debug log
         
         if (session) {
-          router.replace('/(tabs)');
+          router.replace("/(tabs)/community");  // Navigate to the community tab
         } else {
           Alert.alert('Error', 'No session after sign in');
         }

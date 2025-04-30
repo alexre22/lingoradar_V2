@@ -117,11 +117,12 @@ export default function GlobalMapScreen() {
             });
             return (
               <Marker
-                key={location.city}  // Use city name as key since we don't have an id
+                key={location.city}
                 coordinate={{
                   latitude: location.coordinates[1],
                   longitude: location.coordinates[0],
                 }}
+                pinColor="blue"
                 title={location.city}
                 description={`Users: ${location.userCount}`}
                 onPress={() => handleMarkerPress(location.city)}
